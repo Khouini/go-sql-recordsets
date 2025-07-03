@@ -2,32 +2,36 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 
 	_ "github.com/denisenkom/go-mssqldb"
 )
 
-// GetTestData - Simple method that returns all data in one struct
-func GetTestData(db *sql.DB) (*TestDataResult, error) {
-	result := &TestDataResult{}
+// GetBookingDetails - Get all booking details using the stored procedure
+func GetBookingDetails(db *sql.DB, professionalId, partnerId, bookingId, langId *int) (*BookingDetailsResult, error) {
+	result := &BookingDetailsResult{}
 
-	rows, err := db.Query("EXEC sp_GetTestData")
+	// Execute the stored procedure
+	rows, err := db.Query("EXEC dbo.getBookingDetails @p1, @p2, @p3, @p4",
+		professionalId, partnerId, bookingId, langId)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error executing stored procedure: %v", err)
 	}
 	defer rows.Close()
 
-	// One line to scan all recordsets
+	// Scan all recordsets
 	err = scanMultipleRecordsets(rows, result)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error scanning recordsets: %v", err)
 	}
 
 	return result, nil
 }
+
 func main() {
-	connString := "server=localhost,6000;user id=sa;password=95W3x4P4kki5;database=TestDB_X"
+	connString := "server=localhost;user id=user_node_boosterdb;password=6nWNlTX^LpGRONb$WTmeH;database=boosterdb"
 
 	db, err := sql.Open("sqlserver", connString)
 	if err != nil {
@@ -35,69 +39,46 @@ func main() {
 	}
 	defer db.Close()
 
-	// Call single recordset procedure
-	customers, err := GetCustomers(db)
+	// Test connection
+	if err := db.Ping(); err != nil {
+		log.Fatal("Error pinging database:", err)
+	}
+
+	// Get booking details
+	bookingId := 1404590
+
+	result, err := GetBookingDetails(db, nil, nil, &bookingId, nil)
 	if err != nil {
-		log.Fatal("Error getting customers:", err)
+		log.Fatal("Error getting booking details:", err)
 	}
 
-	fmt.Println("=== CUSTOMERS FROM sp_GetCustomers ===")
-	for _, customer := range customers {
-		// fmt.Printf("ID: %d, Name: %s, Country: %s\n",
-		// 	customer.CustomerID, customer.Name, customer.Country)
-		fmt.Printf("ID: %d, Name: %s\n",
-			customer.CustomerID, customer.Name)
-	}
-
-	// Call multiple recordset procedure
-	result, err := GetTestData(db)
-	if err != nil {
-		log.Fatal("Error getting test data:", err)
-	}
-
-	// Print results
-	fmt.Println("=== CUSTOMERS ===")
-	for _, customer := range result.Customers {
-		// fmt.Printf("ID: %d, Name: %s, Country: %s\n",
-		// 	customer.CustomerID, customer.Name, customer.Country)
-		fmt.Printf("ID: %d, Name: %s\n",
-			customer.CustomerID, customer.Name)
-	}
-
-	fmt.Println("\n=== ORDERS ===")
-	for _, order := range result.Orders {
-		fmt.Printf("ID: %d, Customer: %d, Date: %s, Total: %.2f\n",
-			order.OrderID, order.CustomerID, order.OrderDate, order.Total)
-	}
-
-	fmt.Println("\n=== PRODUCTS ===")
-	for _, product := range result.ProductsEmpty {
-		fmt.Printf("ID: %d, Name: %s, Price: %.2f\n",
-			product.ProductID, product.Name, product.Price)
-	}
-
-	fmt.Println("\n=== PRODUCTS ===")
-	for _, product := range result.Products {
-		fmt.Printf("ID: %d, Name: %s, Price: %.2f\n",
-			product.ProductID, product.Name, product.Price)
-	}
+	// Log complete data as JSON
+	logBookingDetailsAsJSON(result)
 }
 
-// GetCustomers - Simple method for single recordset procedure
-func GetCustomers(db *sql.DB) ([]Customer, error) {
-	var customers []Customer
-
-	rows, err := db.Query("EXEC sp_GetCustomers")
+func logBookingDetailsAsJSON(result *BookingDetailsResult) {
+	// Convert to JSON with pretty printing
+	jsonData, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	// Scan single recordset
-	err = scanRecordset(rows, &customers)
-	if err != nil {
-		return nil, err
+		log.Printf("Error marshaling to JSON: %v", err)
+		return
 	}
 
-	return customers, nil
+	fmt.Println("=== COMPLETE BOOKING DETAILS (JSON) ===")
+	fmt.Println(string(jsonData))
+
+	// Also log summary counts
+	fmt.Printf("\n=== SUMMARY ===\n")
+	fmt.Printf("Booking Details: %d records\n", len(result.BookingDetails))
+	fmt.Printf("Hotel Details: %d records\n", len(result.HotelDetails))
+	fmt.Printf("Detail Options: %d records\n", len(result.DetailOptions))
+	fmt.Printf("Booking Services: %d records\n", len(result.BookingServices))
+	fmt.Printf("Miscellaneous: %d records\n", len(result.Miscellaneous))
+	fmt.Printf("Passengers: %d records\n", len(result.Passengers))
+	fmt.Printf("Booking Summary: %d records\n", len(result.BookingSummary))
+	fmt.Printf("Booking Hotels: %d records\n", len(result.BookingHotels))
+	fmt.Printf("Booking Products: %d records\n", len(result.BookingProducts))
+	fmt.Printf("Transactions: %d records\n", len(result.Transactions))
+	fmt.Printf("Cancellation Policies: %d records\n", len(result.CancellationPolicies))
+	fmt.Printf("Booking Logs: %d records\n", len(result.BookingLogs))
 }
