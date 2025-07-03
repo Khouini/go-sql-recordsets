@@ -121,7 +121,7 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
     </div>
 </body>
 </html>`
-	
+
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(html))
@@ -134,7 +134,7 @@ func handleBookingDetails(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		http.Error(w, "Booking ID is required", http.StatusBadRequest)
 		return
 	}
-	
+
 	bookingIdStr := path[9:] // Extract everything after "/booking/"
 	bookingId, err := strconv.Atoi(bookingIdStr)
 	if err != nil {
@@ -174,7 +174,7 @@ func handleBookingDetails(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	// Return JSON response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	
+
 	if err := json.NewEncoder(w).Encode(result); err != nil {
 		log.Printf("Error encoding JSON: %v", err)
 		http.Error(w, "Error encoding response", http.StatusInternalServerError)
